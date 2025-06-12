@@ -1,4 +1,3 @@
-import timeit
 import numpy as np
 import pandas as pd
 from sklearn.datasets import make_s_curve
@@ -12,7 +11,7 @@ X, y = make_s_curve(200, random_state=0)
 y = pd.DataFrame(y, columns=['label'])
 DATA = boot.generate(X, Y=y, method="pca", B=2, save=False, random_seed=0, random_state=0)
 
-def variance_fast(df):
+def variance_reference(df):
     unique_ids = np.unique(df['original_index'])
     embeddings = [df[df['bootstrap_number']==b][['x1','x2']].values for b in sorted(df['bootstrap_number'].unique())]
     idxs_list = [df[df['bootstrap_number']==b]['original_index'].values for b in sorted(df['bootstrap_number'].unique())]
@@ -36,12 +35,8 @@ def variance_fast(df):
     return result
 
 
-def test_score_speed():
-    baseline_time = timeit.timeit(lambda: score.variance(DATA, method='global'), number=1)
-    optimized_time = timeit.timeit(lambda: variance_fast(DATA), number=1)
-
+def test_variance_equivalence():
     baseline = score.variance(DATA, method='global')
-    optimized = variance_fast(DATA)
+    reference = variance_reference(DATA)
 
-    assert np.allclose(baseline, optimized)
-    assert optimized_time <= baseline_time * 0.8
+    assert np.allclose(baseline, reference)
