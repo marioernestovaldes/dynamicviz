@@ -262,31 +262,34 @@ def compute_mean_variance_distance(dist_dict, normalize_pairwise_distance=False,
     '''
     For each (i,j) compute the variance across all distances.
     Then for each i, average across all var(i,j)
-    
+
     Arguments:
         dist_dict = output of populate_distance_dict()
         normalize_pairwise_distance = boolean; whether to normalize the distances between i and j by their mean
         mean_pairwise_distance = float, output of compute_mean_distance()
-    
+
     Returns:
         mean_variance_distances = list of variance scores [one for each observation]
     '''
-    mean_variance_distances = np.ones(len(dist_dict.keys()))*np.inf
-    
-    for n in range(len(dist_dict.keys())):
-        key1 = list(dist_dict.keys())[n]
-        variances = []
-        
-        for key2 in dist_dict[key1].keys():
-            distances = np.array(dist_dict[key1][key2])
-            
-            if normalize_pairwise_distance is True: # perform additional local normalization before taking variance
-                distances = distances/(np.nanmean(distances))
-                
-            variances.append(np.nanvar(distances / mean_pairwise_distance)) # normalize globally and compute variance
-        
-        mean_variance_distances[int(key1)] = np.nanmean(variances)
-        
+
+    keys_i = sorted(dist_dict.keys(), key=int)
+    # gather all neighbor keys and maximum number of occurrences
+    neighbor_keys = sorted({k2 for d in dist_dict.values() for k2 in d.keys()}, key=int)
+    m = max(len(dist_dict[i][j]) for i in dist_dict for j in dist_dict[i])
+
+    distances = np.full((len(keys_i), len(neighbor_keys), m), np.nan)
+
+    for i_idx, key1 in enumerate(keys_i):
+        for j_idx, key2 in enumerate(neighbor_keys):
+            arr = np.asarray(dist_dict[key1].get(key2, []), dtype=float)
+            if normalize_pairwise_distance:
+                if arr.size > 0:
+                    arr = arr / np.nanmean(arr)
+            distances[i_idx, j_idx, :arr.size] = arr
+
+    variances = np.nanvar(distances / mean_pairwise_distance, axis=2)
+    mean_variance_distances = np.nanmean(variances, axis=1)
+
     return(mean_variance_distances)
 
 
