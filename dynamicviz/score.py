@@ -169,39 +169,33 @@ def get_neighborhood_dict(method, k, keys, neighborhoods=None, X_orig=None):
     Returns:
         neighborhood_dict = dictionary with keys corresponding to observation indices and lists of their neighborhoods as values
     '''
-    neighborhood_dict = dict()
-    for key in keys:
-        neighborhood_dict[str(key)] = []
+    neighborhood_dict = {int(key): [] for key in keys}
         
     if neighborhoods is None:
     
         if method == "global":
-            for n in range(len(neighborhood_dict.keys())):
-                key = list(neighborhood_dict.keys())[n]
+            for key in list(neighborhood_dict.keys()):
                 neighborhood_dict[key] = [i for i in range(len(neighborhood_dict.keys()))]
         
         elif method == "random":
-            for n in range(len(neighborhood_dict.keys())):
-                key = list(neighborhood_dict.keys())[n]
-                neighborhood_dict[key] = [i for i in np.random.randint(0,len(neighborhood_dict.keys()),k)]
+            for key in list(neighborhood_dict.keys()):
+                neighborhood_dict[key] = [int(i) for i in np.random.randint(0, len(neighborhood_dict.keys()), k)]
         
         elif method == "local":
             if X_orig is None:
                 raise Exception("Need to specify X_orig to compute nearest neighbors")
-            for n in range(len(neighborhood_dict.keys())):
-                key = list(neighborhood_dict.keys())[n]
-                nbrs = NearestNeighbors(n_neighbors=k+1).fit(X_orig) # compute w.r.t. reference
-                distances_local, indices_local = nbrs.kneighbors(X_orig)
-                neighborhood_dict[key] = [i for i in indices_local[int(key),1:k+1]]
+            nbrs = NearestNeighbors(n_neighbors=k+1).fit(X_orig)
+            distances_local, indices_local = nbrs.kneighbors(X_orig)
+            for key in list(neighborhood_dict.keys()):
+                neighborhood_dict[key] = [int(i) for i in indices_local[int(key), 1:k+1]]
         
         else:
             raise Exception ("Need to specify either method ('global', 'local') or neighborhood")  
     
     else:
-        for n in range(len(neighborhood_dict.keys())):
-            key = list(neighborhood_dict.keys())[n]
+        for key in list(neighborhood_dict.keys()):
             label = neighborhoods[int(key)]
-            neighborhood_dict[key] = [i for i in range(len(neighborhoods)) if neighborhoods[i]==label]
+            neighborhood_dict[key] = [i for i in range(len(neighborhoods)) if neighborhoods[i] == label]
             
             
     return(neighborhood_dict)
@@ -221,25 +215,17 @@ def populate_distance_dict (neighborhood_dict, embeddings, bootstrap_indices):
         dist_dict = two-level dictionary with first level corresponding to observation i and second level corresponding to observation j 
                     the value corresponds to a list of Euclidean distances between observation i and j across all co-occurrences in the bootstrap visualizations
     '''
-    dist_dict = dict()
-    for key1 in neighborhood_dict.keys():
-        dist_dict[str(key1)] = {}
-        for key2 in neighborhood_dict[key1]:
-            dist_dict[str(key1)][str(key2)] = []
+    dist_dict = {key1: {key2: [] for key2 in neighborhood_dict[key1]} for key1 in neighborhood_dict.keys()}
             
-    for b in range(len(embeddings)):
-        dist_mat = pairwise_distances(embeddings[b], n_jobs=-1)
-        boot_idxs = bootstrap_indices[b]
-        
-        for i in range(dist_mat.shape[0]):
-            key1 = str(boot_idxs[i])
+    for emb, boot_idxs in zip(embeddings, bootstrap_indices):
+        dist_mat = pairwise_distances(emb, n_jobs=-1)
+        index_map = {idx: np.where(boot_idxs == idx)[0] for idx in np.unique(boot_idxs)}
+        for i, key1 in enumerate(boot_idxs):
             neighbor_js = neighborhood_dict[key1]
-
-            for nj in neighbor_js:
-                key2 = str(nj)
-                js = [x[0] for x in np.argwhere(boot_idxs == nj)]
-                for j in js:
-                    dist_dict[key1][key2].append(dist_mat[i,j])
+            for key2 in neighbor_js:
+                js = index_map.get(key2)
+                if js is not None and js.size > 0:
+                    dist_dict[key1][key2].extend(dist_mat[i, js])
 
     return(dist_dict)
 
