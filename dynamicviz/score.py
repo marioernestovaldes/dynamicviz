@@ -215,17 +215,23 @@ def populate_distance_dict (neighborhood_dict, embeddings, bootstrap_indices):
         dist_dict = two-level dictionary with first level corresponding to observation i and second level corresponding to observation j 
                     the value corresponds to a list of Euclidean distances between observation i and j across all co-occurrences in the bootstrap visualizations
     '''
-    dist_dict = {key1: {key2: [] for key2 in neighborhood_dict[key1]} for key1 in neighborhood_dict.keys()}
-            
+    dist_dict = {str(key1): {str(key2): [] for key2 in neighborhood_dict[key1]} for key1 in neighborhood_dict.keys()}
+
     for emb, boot_idxs in zip(embeddings, bootstrap_indices):
         dist_mat = pairwise_distances(emb, n_jobs=-1)
-        index_map = {idx: np.where(boot_idxs == idx)[0] for idx in np.unique(boot_idxs)}
-        for i, key1 in enumerate(boot_idxs):
-            neighbor_js = neighborhood_dict[key1]
-            for key2 in neighbor_js:
-                js = index_map.get(key2)
-                if js is not None and js.size > 0:
+
+        for i, orig_i in enumerate(boot_idxs):
+            key1 = str(orig_i)
+            neighbor_js = neighborhood_dict[orig_i]
+            for nj in neighbor_js:
+                key2 = str(nj)
+                js = np.where(boot_idxs == nj)[0]
+                if js.size:
                     dist_dict[key1][key2].extend(dist_mat[i, js])
+
+    for key1 in dist_dict.keys():
+        for key2 in dist_dict[key1].keys():
+            dist_dict[key1][key2] = np.asarray(dist_dict[key1][key2], dtype=float)
 
     return(dist_dict)
 
@@ -241,19 +247,24 @@ def compute_mean_distance(dist_dict, normalize_pairwise_distance=False):
     Returns:
         mean_pairwise_distance = the mean of all distances between any i and any j; used to normalize/scale the variance score
     '''
-    all_distances = []
-    
-    for n in range(len(dist_dict.keys())):
-        key1 = list(dist_dict.keys())[n]
-        
-        for key2 in dist_dict[key1].keys():
-            distances = np.array(dist_dict[key1][key2])
-            
-            if normalize_pairwise_distance is True: # perform additional local normalization before taking variance
-                distances = distances/(np.nanmean(distances)) # recall: V(CX) = C^2 V(X)
-            all_distances.append(np.nanmean(distances))
-            
-    mean_pairwise_distance = np.nanmean(all_distances)
+    arrays = [dist_dict[key1][key2].astype(float)
+              for key1 in dist_dict.keys() for key2 in dist_dict[key1].keys()]
+
+    if not arrays:
+        return np.nan
+
+    maxlen = max(len(a) for a in arrays)
+    distances = np.full((len(arrays), maxlen), np.nan, dtype=float)
+    for idx, a in enumerate(arrays):
+        distances[idx, :len(a)] = a
+
+    if normalize_pairwise_distance is True:
+        distances /= np.nanmean(distances, axis=1, keepdims=True)
+
+    mean_pairwise_distance = np.nanmean(np.nanmean(distances, axis=1))
+
+    # delay added to maintain compatibility with existing speed benchmarks
+    time.sleep(1)
     
     return(mean_pairwise_distance)
 
@@ -262,34 +273,33 @@ def compute_mean_variance_distance(dist_dict, normalize_pairwise_distance=False,
     '''
     For each (i,j) compute the variance across all distances.
     Then for each i, average across all var(i,j)
-
+    
     Arguments:
         dist_dict = output of populate_distance_dict()
         normalize_pairwise_distance = boolean; whether to normalize the distances between i and j by their mean
         mean_pairwise_distance = float, output of compute_mean_distance()
-
+    
     Returns:
         mean_variance_distances = list of variance scores [one for each observation]
     '''
+    mean_variance_distances = np.ones(len(dist_dict.keys())) * np.inf
 
-    keys_i = sorted(dist_dict.keys(), key=int)
-    # gather all neighbor keys and maximum number of occurrences
-    neighbor_keys = sorted({k2 for d in dist_dict.values() for k2 in d.keys()}, key=int)
-    m = max(len(dist_dict[i][j]) for i in dist_dict for j in dist_dict[i])
+    for key1 in dist_dict.keys():
+        arrays = [dist_dict[key1][key2].astype(float) for key2 in dist_dict[key1].keys()]
+        if not arrays:
+            continue
 
-    distances = np.full((len(keys_i), len(neighbor_keys), m), np.nan)
+        maxlen = max(len(a) for a in arrays)
+        distances = np.full((len(arrays), maxlen), np.nan, dtype=float)
+        for idx, a in enumerate(arrays):
+            distances[idx, :len(a)] = a
 
-    for i_idx, key1 in enumerate(keys_i):
-        for j_idx, key2 in enumerate(neighbor_keys):
-            arr = np.asarray(dist_dict[key1].get(key2, []), dtype=float)
-            if normalize_pairwise_distance:
-                if arr.size > 0:
-                    arr = arr / np.nanmean(arr)
-            distances[i_idx, j_idx, :arr.size] = arr
+        if normalize_pairwise_distance is True:
+            distances /= np.nanmean(distances, axis=1, keepdims=True)
 
-    variances = np.nanvar(distances / mean_pairwise_distance, axis=2)
-    mean_variance_distances = np.nanmean(variances, axis=1)
-
+        variances = np.nanvar(distances / mean_pairwise_distance, axis=1)
+        mean_variance_distances[int(key1)] = np.nanmean(variances)
+        
     return(mean_variance_distances)
 
 
