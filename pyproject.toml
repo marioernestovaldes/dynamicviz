@@ -32,3 +32,6 @@ dependencies = [
 
 [project.urls]
 Home = "https://github.com/sunericd/dynamicviz"
+
+[tool.ruff]
+extend-exclude = ["tutorial.ipynb"]
