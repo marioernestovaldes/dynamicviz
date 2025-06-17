@@ -7,7 +7,7 @@ from sklearn.datasets import make_s_curve
 from sklearn.metrics import pairwise_distances
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from dynamicviz.dynamicviz import boot, score
+from dynamicviz import boot, score
 
 X, y = make_s_curve(200, random_state=0)
 y = pd.DataFrame(y, columns=["label"])

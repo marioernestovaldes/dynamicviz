@@ -7,7 +7,7 @@ from sklearn.datasets import make_s_curve
 from scipy.spatial.transform import Rotation
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from dynamicviz.dynamicviz import boot
+from dynamicviz import boot
 
 
 def generate_reference(
