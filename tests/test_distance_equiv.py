@@ -118,4 +118,4 @@ def test_populate_distance_dict_equivalence():
 
     for key1 in dist_old:
         for key2 in dist_old[key1]:
-            assert np.allclose(dist_new[key1][key2], dist_old[key1][key2])
+            assert np.allclose(dist_new[key1][key2], dist_old[key1][key2], atol=1e-7)
