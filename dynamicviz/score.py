@@ -8,6 +8,8 @@ Score module
 # (C) 2022
 from __future__ import print_function, division
 
+import os
+
 from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import NearestNeighbors
 from scipy.stats import spearmanr
@@ -294,7 +296,7 @@ def populate_distance_dict(neighborhood_dict, embeddings, bootstrap_indices):
 
             if pairs:
                 sub_emb = emb[[i_idx] + [p for p, _ in pairs]]
-                dists = pairwise_distances(sub_emb, n_jobs=-1)[0, 1:]
+                dists = pairwise_distances(sub_emb, n_jobs=int(0.75 * os.cpu_count()))[0, 1:]
                 for (pos, key2), dist in zip(pairs, dists):
                     if pos == i_idx:
                         dist = 0.0
@@ -542,7 +544,7 @@ def concordance(df, X_orig, method, k=None, bootstrap_number=-1):
         X_orig = nxp numpy array that is the original data from which df was generated
         method = str: 'spearman', 'jaccard', 'distortion',
                  'mean_projection_error', 'stretch'
-        k = int, neighborhood size to consider (jaccard, distortion, projection_precision_score, precision, recall)
+        k = int, neighborhood size to consider (jaccard, distortion, projection_precision_score, spearman, stretch)
         bootstrap_number = int, index of bootstrap to compute metrics for; defaults to -1 which is the original/unbootstrapped projection
 
     Returns:
