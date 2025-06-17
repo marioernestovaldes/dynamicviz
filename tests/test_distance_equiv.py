@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.datasets import make_s_curve
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from dynamicviz.dynamicviz import boot, score
+from dynamicviz import boot, score
 
 
 # Baseline implementations copied from the previous version of score.py
