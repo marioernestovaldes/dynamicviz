@@ -384,62 +384,98 @@ def compute_mean_variance_distance(
 
 
 def get_jaccard(X_orig, X_red, k, precomputed=[False, False]):
-    """
-    Computes Jaccard coefficient at k for each point in X_orig and X_red
-    """
-    # INIT NEAREST NEIGHBORS
-    if precomputed[0] is False:
-        nbrs = NearestNeighbors(n_neighbors=k).fit(X_orig)
-    else:
-        nbrs = NearestNeighbors(n_neighbors=k, metric="precomputed").fit(X_orig)
-    distances_orig, indices_orig = nbrs.kneighbors(X_orig)
+    """Return the Jaccard coefficient at ``k`` for each observation.
 
-    if precomputed[0] is False:
-        nbrs = NearestNeighbors(n_neighbors=k).fit(X_red)
-    else:
-        nbrs = NearestNeighbors(n_neighbors=k, metric="precomputed").fit(X_red)
-    distances_red, indices_red = nbrs.kneighbors(X_red)
+    Parameters
+    ----------
+    X_orig : array-like or ndarray
+        Original data or a precomputed pairwise distance matrix when
+        ``precomputed[0]`` is ``True``.
+    X_red : array-like or ndarray
+        Reduced data or a precomputed pairwise distance matrix when
+        ``precomputed[1]`` is ``True``.
+    k : int
+        Number of nearest neighbours to consider **excluding** the point
+        itself.
+    precomputed : list of bool, default ``[False, False]``
+        Flags indicating whether ``X_orig`` and ``X_red`` are already distance
+        matrices.
 
-    # COMPUTE JACCARD
+    Returns
+    -------
+    numpy.ndarray
+        Array of Jaccard coefficients for each observation.
+    """
+
+    if not precomputed[0]:
+        dist_orig = pairwise_distances(X_orig, n_jobs=-1)
+    else:
+        dist_orig = np.asarray(X_orig)
+
+    if not precomputed[1]:
+        dist_red = pairwise_distances(X_red, n_jobs=-1)
+    else:
+        dist_red = np.asarray(X_red)
+
+    indices_orig = np.argsort(dist_orig, axis=1)[:, 1 : k + 1]
+    indices_red = np.argsort(dist_red, axis=1)[:, 1 : k + 1]
+
     jaccards = []
-    for i in range(X_orig.shape[0]):
-        list1 = list(indices_orig[i, 1:])
-        list2 = list(indices_red[i, 1:])
-        intersection = len(list(set(list1).intersection(list2)))
-        union = (len(list1) + len(list2)) - intersection
-        jaccards.append(float(intersection) / union)
+    for neigh_o, neigh_r in zip(indices_orig, indices_red):
+        inter = len(np.intersect1d(neigh_o, neigh_r))
+        union = 2 * k - inter
+        jaccards.append(inter / union)
 
-    return jaccards
+    return np.asarray(jaccards, dtype=float)
 
 
 def get_distortion(X_orig, X_red, k, precomputed=[False, False]):
+    """Return the distortion at ``k`` for each observation.
+
+    Distortion is defined as
+
+    ``abs(log((D_furthest/D_nearest)_orig / (D_furthest/D_nearest)_red))``.
+    Values are normalised to ``[0, 1]`` and inverted so that ``1`` is best.
+
+    Parameters
+    ----------
+    X_orig : array-like or ndarray
+        Original data or a precomputed pairwise distance matrix when
+        ``precomputed[0]`` is ``True``.
+    X_red : array-like or ndarray
+        Reduced data or a precomputed pairwise distance matrix when
+        ``precomputed[1]`` is ``True``.
+    k : int
+        Number of nearest neighbours to consider **excluding** the point
+        itself.
+    precomputed : list of bool, default ``[False, False]``
+        Flags indicating whether ``X_orig`` and ``X_red`` are already distance
+        matrices.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of distortion values for each observation.
     """
-    Computes Distortion at k for each point in X_orig and X_red
 
-    Distortion = ABS ( LOG [ (D_furthest/D_nearest)_orig / (D_furthest/D_nearest)_red ] )
-    Distortions normalized by the maximum in entire dataset to be from [0,1] and reframed so 1 is best
-    """
-    # INIT NEAREST NEIGHBORS
-    if precomputed[0] is False:
-        nbrs = NearestNeighbors(n_neighbors=k).fit(X_orig)
+    if not precomputed[0]:
+        dist_orig = pairwise_distances(X_orig, n_jobs=-1)
     else:
-        nbrs = NearestNeighbors(n_neighbors=k, metric="precomputed").fit(X_orig)
-    distances_orig, indices_orig = nbrs.kneighbors(X_orig)
+        dist_orig = np.asarray(X_orig)
 
-    if precomputed[0] is False:
-        nbrs = NearestNeighbors(n_neighbors=k).fit(X_red)
+    if not precomputed[1]:
+        dist_red = pairwise_distances(X_red, n_jobs=-1)
     else:
-        nbrs = NearestNeighbors(n_neighbors=k, metric="precomputed").fit(X_red)
-    distances_red, indices_red = nbrs.kneighbors(X_red)
+        dist_red = np.asarray(X_red)
 
-    # COMPUTE DISTORTION
-    distortions = []
-    for i in range(X_orig.shape[0]):
-        orig_ratio = np.max(distances_orig[i, 1:]) / np.min(distances_orig[i, 1:])
-        red_ratio = np.max(distances_red[i, 1:]) / np.min(distances_red[i, 1:])
-        distortions.append(np.abs(np.log(orig_ratio / red_ratio)))
+    sorted_orig = np.sort(dist_orig, axis=1)
+    sorted_red = np.sort(dist_red, axis=1)
 
-    distortions = np.array(distortions) / np.max(distortions)
+    orig_ratio = sorted_orig[:, k] / sorted_orig[:, 1]
+    red_ratio = sorted_red[:, k] / sorted_red[:, 1]
+
+    distortions = np.abs(np.log(orig_ratio / red_ratio))
+    distortions = distortions / np.max(distortions)
     distortions = 1 - distortions
 
     return distortions
@@ -556,7 +592,7 @@ def ensemble_concordance(
     df, X_orig, methods=None, k=None, bootstrap_number=-1, verbose=True
 ):
     """
-    Compute emsemble concordation via spectral meta-weights
+    Compute ensemble concordance via spectral meta-weights.
 
     Arguments:
         df = pandas dataframe: output of boot.generate()
