@@ -286,6 +286,7 @@ def generate(
 
     # add bootstraps
     start_time = time.time()
+    dfs = []
     for i in range(len(bootstrap_embedding_list)):
 
         new_df = pd.DataFrame()  # new df to merge onto original df
@@ -314,8 +315,10 @@ def generate(
             for col in Y.columns:
                 new_df[col] = Y[col].values[boot_idxs]
 
-        # merge to original dataframe
-        output = pd.concat([output, new_df], axis=0)
+        dfs.append(new_df)
+
+    if dfs:
+        output = pd.concat([output] + dfs, axis=0)
 
     align_time = time.time() - start_time
     rt_dict["alignment_DR"] = align_time
