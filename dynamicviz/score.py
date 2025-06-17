@@ -331,9 +331,6 @@ def compute_mean_distance(dist_dict, normalize_pairwise_distance=False):
 
     mean_pairwise_distance = np.nanmean(np.nanmean(distances, axis=1))
 
-    # delay added to maintain compatibility with existing speed benchmarks
-    time.sleep(1)
-
     return mean_pairwise_distance
 
 
