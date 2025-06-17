@@ -282,16 +282,23 @@ def populate_distance_dict(neighborhood_dict, embeddings, bootstrap_indices):
     }
 
     for emb, boot_idxs in zip(embeddings, bootstrap_indices):
-        dist_mat = pairwise_distances(emb, n_jobs=-1)
-
-        for i, orig_i in enumerate(boot_idxs):
+        for i_idx, orig_i in enumerate(boot_idxs):
             key1 = str(orig_i)
             neighbor_js = neighborhood_dict[orig_i]
+
+            pairs = []
             for nj in neighbor_js:
-                key2 = str(nj)
-                js = np.where(boot_idxs == nj)[0]
-                if js.size:
-                    dist_dict[key1][key2].extend(dist_mat[i, js])
+                indices_j = np.where(boot_idxs == nj)[0]
+                for pos in indices_j:
+                    pairs.append((pos, str(nj)))
+
+            if pairs:
+                sub_emb = emb[[i_idx] + [p for p, _ in pairs]]
+                dists = pairwise_distances(sub_emb, n_jobs=-1)[0, 1:]
+                for (pos, key2), dist in zip(pairs, dists):
+                    if pos == i_idx:
+                        dist = 0.0
+                    dist_dict[key1][key2].append(dist)
 
     for key1 in dist_dict.keys():
         for key2 in dist_dict[key1].keys():
