@@ -296,7 +296,9 @@ def populate_distance_dict(neighborhood_dict, embeddings, bootstrap_indices):
 
             if pairs:
                 sub_emb = emb[[i_idx] + [p for p, _ in pairs]]
-                dists = pairwise_distances(sub_emb, n_jobs=int(0.75 * os.cpu_count()))[0, 1:]
+                dists = pairwise_distances(sub_emb, n_jobs=int(0.75 * os.cpu_count()))[
+                    0, 1:
+                ]
                 for (pos, key2), dist in zip(pairs, dists):
                     if pos == i_idx:
                         dist = 0.0
