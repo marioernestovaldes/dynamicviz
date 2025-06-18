@@ -416,9 +416,10 @@ def stacked(
         if vmax is None:
             vmax = np.max(df[label])
 
-    # automatically set alpha based on heuristic
+    # automatically set alpha based on heuristic and cap at 1.0 for small datasets
     if alpha is None:
         alpha = 0.2 / (df.shape[0] / 1000)
+        alpha = min(alpha, 1.0)
 
     fig = plt.figure(figsize=(width, height))
 
