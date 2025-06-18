@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import cv2
 import plotly.express as px
+from pandas.api.types import is_float_dtype
 
 
 def interactive(
@@ -70,7 +71,7 @@ def interactive(
     if dim is None:
         dim = np.max([np.max(np.abs(df["x1"])), np.max(np.abs(df["x2"]))])
 
-    if df[label].dtype == np.float:  # define max and min values across all frames
+    if is_float_dtype(df[label]):  # define max and min values across all frames
         if vmin is None:
             vmin = np.min(df[label])
         if vmax is None:
@@ -83,7 +84,7 @@ def interactive(
     df_px = df.copy()  # make copy of df
 
     # create color dict if needed
-    if (df_px[label].dtype != np.float) and (isinstance(colors, list)):
+    if (not is_float_dtype(df_px[label])) and isinstance(colors, list):
         color_dict = {}
         for li, lab in enumerate(np.unique(df_px[label])):
             color_dict[lab] = colors[li]
@@ -92,7 +93,7 @@ def interactive(
     # df_px['symbol'] = marker
 
     # make figure
-    if df[label].dtype == np.float:  # continuous labels
+    if is_float_dtype(df[label]):  # continuous labels
         fig = px.scatter(
             df_px,
             x="x1",
@@ -228,7 +229,7 @@ def animated(
     # get bootstrap-wide statistics for consistency across frames
     if dim is None:
         dim = np.max([np.max(np.abs(df["x1"])), np.max(np.abs(df["x2"]))])
-    if df[label].dtype == np.float:
+    if is_float_dtype(df[label]):
         if vmin is None:
             vmin = np.min(df[label])
         if vmax is None:
@@ -245,7 +246,7 @@ def animated(
         fig = plt.figure(figsize=(width, height))
 
         # continuous labels for float labels
-        if df[label].dtype == np.float:
+        if is_float_dtype(df[label]):
             plt.scatter(
                 sub_df["x1"],
                 sub_df["x2"],
@@ -409,7 +410,7 @@ def stacked(
     # get bootstrap-wide statistics for consistency across frames
     if dim is None:
         dim = np.max([np.max(np.abs(df["x1"])), np.max(np.abs(df["x2"]))])
-    if df[label].dtype == np.float:
+    if is_float_dtype(df[label]):
         if vmin is None:
             vmin = np.min(df[label])
         if vmax is None:
@@ -428,7 +429,7 @@ def stacked(
         df = df[df["bootstrap_number"] == int(frame)]
 
     # continuous labels
-    if df[label].dtype == np.float:
+    if is_float_dtype(df[label]):
         plt.scatter(
             df["x1"],
             df["x2"],
