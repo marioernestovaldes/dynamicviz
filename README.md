@@ -10,6 +10,18 @@ For a Quick Start guide, please refer to ``` tutorial.ipynb ```.
 
 ![plot](./pipeline.png)
 
+## About this fork
+
+The `main` branch of this repository is **ahead** of
+[sunericd/dynamicviz](https://github.com/sunericd/dynamicviz). Major updates
+include:
+
+- Vectorized distance calculations and variance computations for faster
+  performance.
+- Refined concordance metrics with an expanded automated test suite.
+- A GitHub Actions workflow that runs tests on every push.
+- General code cleanup and bug fixes.
+
 ## Installation and setup
 
 ### Option 1: PyPI
