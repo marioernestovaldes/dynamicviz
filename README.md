@@ -12,7 +12,7 @@ For a Quick Start guide, please refer to ``` tutorial.ipynb ```.
 
 ## About this fork
 
-The `main` branch of this repository is **37 commits ahead** of
+The `main` branch of this repository is **ahead** of
 [sunericd/dynamicviz](https://github.com/sunericd/dynamicviz). Major updates
 include:
 
