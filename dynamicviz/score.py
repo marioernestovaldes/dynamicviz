@@ -8,8 +8,6 @@ Score module
 # (C) 2022
 from __future__ import print_function, division
 
-import os
-
 from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import NearestNeighbors
 from scipy.stats import spearmanr
@@ -33,6 +31,7 @@ def variance(
     normalize_pairwise_distance=False,
     include_original=True,
     return_times=False,
+    n_jobs=-1,
 ):
     """
     Computes variances scores from the output dataframe (out) of boot.generate()
@@ -48,6 +47,7 @@ def variance(
         normalize_pairwise_distance = if True, then divide each set of d[i,j] by its mean before computing variance
         include_original = if True, include the original (bootstrap_number=-1) embedding in calculating scores
         return_times = True or False; if not False, returns a dictionary of run times broken down by components as the second output
+        n_jobs = number of parallel jobs when computing pairwise distances (default -1 uses all cores)
 
     Returns:
         mean_variance_distances = numpy array with variance scores (mean variance in pairwise distance to neighborhood) for each observation
@@ -94,7 +94,9 @@ def variance(
     # populate distance dict
     print("Populating distances...")
     start_time = time.time()
-    dist_dict = populate_distance_dict(neighborhood_dict, embeddings, bootstrap_indices)
+    dist_dict = populate_distance_dict(
+        neighborhood_dict, embeddings, bootstrap_indices, n_jobs=n_jobs
+    )
     dist_time = time.time() - start_time
     rt_dict["distances"] = dist_time
     print("--- %s seconds ---" % dist_time)
@@ -264,7 +266,7 @@ def get_neighborhood_dict(method, k, keys, neighborhoods=None, X_orig=None):
 
 
 # @njit(parallel=True)
-def populate_distance_dict(neighborhood_dict, embeddings, bootstrap_indices):
+def populate_distance_dict(neighborhood_dict, embeddings, bootstrap_indices, n_jobs=-1):
     """
     Returns dictionary with pairwise dictionaries for all observations[i][j]
 
@@ -296,9 +298,7 @@ def populate_distance_dict(neighborhood_dict, embeddings, bootstrap_indices):
 
             if pairs:
                 sub_emb = emb[[i_idx] + [p for p, _ in pairs]]
-                dists = pairwise_distances(sub_emb, n_jobs=int(0.75 * os.cpu_count()))[
-                    0, 1:
-                ]
+                dists = pairwise_distances(sub_emb, n_jobs=n_jobs)[0, 1:]
                 for (pos, key2), dist in zip(pairs, dists):
                     if pos == i_idx:
                         dist = 0.0
@@ -475,8 +475,9 @@ def get_distortion(X_orig, X_red, k, precomputed=[False, False]):
     sorted_orig = np.sort(dist_orig, axis=1)
     sorted_red = np.sort(dist_red, axis=1)
 
-    orig_ratio = sorted_orig[:, k] / sorted_orig[:, 1]
-    red_ratio = sorted_red[:, k] / sorted_red[:, 1]
+    eps = np.finfo(float).eps
+    orig_ratio = sorted_orig[:, k] / np.maximum(sorted_orig[:, 1], eps)
+    red_ratio = sorted_red[:, k] / np.maximum(sorted_red[:, 1], eps)
 
     distortions = np.abs(np.log(orig_ratio / red_ratio))
     distortions = distortions / np.max(distortions)
@@ -497,9 +498,12 @@ def get_mean_projection_error(X_orig, X_red):
     red_distance = pairwise_distances(X_red)
 
     # normalize distances
+    eps = np.finfo(float).eps
     for i in range(orig_distance.shape[0]):
-        orig_distance[i, :] = orig_distance[i, :] / np.max(orig_distance[i, :])
-        red_distance[i, :] = red_distance[i, :] / np.max(red_distance[i, :])
+        max_orig = np.maximum(np.max(orig_distance[i, :]), eps)
+        max_red = np.maximum(np.max(red_distance[i, :]), eps)
+        orig_distance[i, :] = orig_distance[i, :] / max_orig
+        red_distance[i, :] = red_distance[i, :] / max_red
 
     # compute projection errors and then MPE
     projection_errors = np.abs(orig_distance - red_distance)
